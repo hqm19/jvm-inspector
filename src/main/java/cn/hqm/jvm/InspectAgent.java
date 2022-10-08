@@ -17,7 +17,6 @@ import java.util.jar.JarFile;
 
 import cn.hqm.jvm.Common.FileName;
 
-
 /**
  * 
  * @author linxuan
@@ -32,18 +31,15 @@ public class InspectAgent {
     private static Thread listenThread = null;
     private static File outputDir;
 
-
     public static void premain(String agentArgs, Instrumentation inst) {
         Log.warn("[InspectAgent.premain] begin. agentArgs:" + agentArgs);
         main(agentArgs, inst);
     }
 
-
     public static void agentmain(String agentArgs, Instrumentation inst) {
         Log.warn("[InspectAgent.agentmain] begin. agentArgs:" + agentArgs);
         main(agentArgs, inst);
     }
-
 
     public static void main(String agentArgs, Instrumentation inst) {
         Log.warn("[InspectAgent] Instrumentation:" + inst);
@@ -73,18 +69,16 @@ public class InspectAgent {
             String thisjar = InspectAgent.class.getProtectionDomain().getCodeSource().getLocation().getFile();
             instrumentation.appendToSystemClassLoaderSearch(new JarFile(thisjar));
             Log.warn("appendToSystemClassLoaderSearch:" + thisjar);
-        }
-        catch (IOException e1) {
+        } catch (IOException e1) {
             Log.warn("appendToSystemClassLoaderSearch failed", e1);
         }
 
         if (listenThread != null) {
-            //上一次attach遗留下来的监听线程
+            // 上一次attach遗留下来的监听线程
             listenThread.interrupt();
             try {
                 listenThread.join();
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 throw new IllegalStateException(e);
             }
             listenThread = null;
@@ -100,12 +94,10 @@ public class InspectAgent {
             listenThread.start();
             try {
                 listenReady.wait();
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
             }
         }
     }
-
 
     private static String getLocation(Class<?> c) {
         if (c.getProtectionDomain() == null) {
@@ -119,7 +111,6 @@ public class InspectAgent {
         }
         return c.getProtectionDomain().getCodeSource().getLocation().toString();
     }
-
 
     private static void listen(int port) {
         ServerSocket serverSocket = null;
@@ -146,61 +137,52 @@ public class InspectAgent {
                 String res = RequestProcessor.process(outputDir, line, bw, instrumentation);
                 echo(res, bw);
             }
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             Log.warn("", e);
-        }
-        finally {
+        } finally {
             if (bw != null) {
                 try {
                     bw.close();
-                }
-                catch (IOException e) {
+                } catch (IOException e) {
                 }
                 agentWriter = null;
             }
             if (br != null) {
                 try {
                     br.close();
-                }
-                catch (IOException e) {
+                } catch (IOException e) {
                 }
             }
             if (socket != null) {
                 try {
                     socket.close();
-                }
-                catch (IOException e) {
+                } catch (IOException e) {
                 }
             }
             if (serverSocket != null) {
                 try {
                     serverSocket.close();
-                }
-                catch (IOException e) {
+                } catch (IOException e) {
                 }
             }
-            //保证bind端口失败时，agentmain仍然能返回
+            // 保证bind端口失败时，agentmain仍然能返回
             synchronized (listenReady) {
                 listenReady.notify();
             }
         }
     }
 
-
     public static void deattach() throws IOException {
         if (inspector != null) {
             Log.warn("[deattach] stopFlushThread");
             if (instrumentation != null) {
-                //instrumentation.removeTransformer(inspector);
+                // instrumentation.removeTransformer(inspector);
             }
             inspector = null;
-        }
-        else {
+        } else {
             Log.warn("[deattach] inspector is null");
         }
     }
-
 
     private static void echo(String line, BufferedWriter bw) throws IOException {
         bw.write(line);
@@ -210,7 +192,6 @@ public class InspectAgent {
         bw.flush();
     }
 
-
     public static void echo(String msg) {
         BufferedWriter target = fileWriter != null ? fileWriter : agentWriter;
         if (target != null) {
@@ -218,44 +199,43 @@ public class InspectAgent {
                 target.write(msg);
                 target.newLine();
                 target.flush();
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 Log.warn("echo failed. msg:" + msg, e);
+            } finally {
+                try {
+                    target.close();
+                } catch (Exception e) {
+                    Log.warn("close target failed. msg:" + msg, e);
+                }
             }
         }
     }
-
 
     public static File openEchoToFile(File dir) {
         if (fileWriter == null) {
             File file = Common.getFile(dir, filename);
             try {
                 fileWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file)));
-            }
-            catch (FileNotFoundException e) {
+            } catch (FileNotFoundException e) {
                 e.printStackTrace(new PrintWriter(agentWriter));
             }
             return file;
-        }
-        else {
+        } else {
             throw new IllegalStateException("fileWriter not null");
         }
     }
-
 
     public static void closeEchoToFile() {
         if (fileWriter != null) {
             try {
                 fileWriter.close();
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 if (agentWriter != null) {
                     e.printStackTrace(new PrintWriter(agentWriter));
                 }
             }
             fileWriter = null;
-        }
-        else {
+        } else {
             throw new IllegalStateException("fileWriter is null");
         }
     }
@@ -266,7 +246,6 @@ public class InspectAgent {
             return JVMUtils.pid + ".details." + n + ".txt";
         }
     };
-
 
     public static void main(String[] args) {
         System.out.println("=== main ===");
