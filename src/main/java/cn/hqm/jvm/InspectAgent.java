@@ -18,6 +18,17 @@ import java.util.jar.JarFile;
 import cn.hqm.jvm.Common.FileName;
 
 /**
+ * 对应 resource/META-INF 中的如下配置：
+ * 
+ * Premain-Class: cn.hqm.jvm.InspectAgent
+ * Agent-Class: cn.hqm.jvm.InspectAgent
+ * 
+ * 第一行：目标JVM启动时加载，执行premain
+ * 第二行：目标JVM启动后，通过 attach 方法动态加载，执行 agentmain
+ * 
+ * 两种方式，加载后的两个执行入口，都走到同一个 main 方法：
+ * 1. 监听 "listenPort=" 指定的端口，若不指定，默认监听 54321 端口
+ * 2.
  * 
  * @author linxuan
  *
@@ -41,6 +52,7 @@ public class InspectAgent {
         main(agentArgs, inst);
     }
 
+    // 如下方法在目标JVM内执行，会消耗目标JVM的内存，并占用CPU资源
     public static void main(String agentArgs, Instrumentation inst) {
         Log.warn("[InspectAgent] Instrumentation:" + inst);
         Log.warn("[InspectAgent] isRedefineClassesSupported:" + inst.isRedefineClassesSupported());
@@ -48,12 +60,15 @@ public class InspectAgent {
 
         outputDir = aa.outputDir;
         Logger logger = Logger.getLogger(aa.logFile);
-        Class<?>[] allLoadedClasses = inst.getAllLoadedClasses();
+
+        // 获取已加载的所有类，这个方法内存消耗可能较大
+        Class<?>[] allLoadedClasses = inst.getAllLoadedClasses(); 
         if (inspector == null) {
             inspector = new ClassLoadingSpy(aa.outputDir, logger, allLoadedClasses);
         }
         inspector.setEnableHyperlink(aa.enableHyperlink);
 
+        // 获取由 bootstrap classloader 初始化的所有类
         Class<?>[] bootstrapClasses = inst.getInitiatedClasses(null);
         logger.info("[InspectAgent] total loaded classes: " + allLoadedClasses.length);
         logger.info("[InspectAgent] total bootstrap loaded class: " + bootstrapClasses.length);
@@ -112,6 +127,7 @@ public class InspectAgent {
         return c.getProtectionDomain().getCodeSource().getLocation().toString();
     }
 
+    // 监听逻辑入口
     private static void listen(int port) {
         ServerSocket serverSocket = null;
         Socket socket = null;

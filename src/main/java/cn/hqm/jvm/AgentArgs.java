@@ -20,7 +20,7 @@ public class AgentArgs {
         String logFile = "jvm.inspect";
         long flushIntervalSeconds = 3 * 60;
         boolean enableHyperlink = false;
-        int port = 54321;
+        int port = 54321; // 监听端口默认为 54321
         String outputdir = System.getProperty("user.dir");
         outputdir = new File(outputdir).canWrite() ? outputdir : System.getProperty("java.io.tmpdir");
         if (agentArgs != null && agentArgs.length() != 0) {

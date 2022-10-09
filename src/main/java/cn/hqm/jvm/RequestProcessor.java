@@ -12,6 +12,7 @@ import java.util.Arrays;
 
 
 /**
+ * Attach成功，简历 socket 连接后的交互式请求应答处理
  * 
  * @author linxuan
  *
@@ -25,8 +26,10 @@ public class RequestProcessor {
         try {
             if ("get".equalsIgnoreCase(tokens[0])) {
                 if (tokens.length < 2) {
+                    // get 后没有参数，则显示 usage
                     return "Usage:get com.x.Foo.bar";
                 }
+                // get 后有参数，则执行 get 表达式
                 return eval(tokens[1]);
             }
             else if ("set".equalsIgnoreCase(tokens[0])) {
@@ -92,9 +95,11 @@ public class RequestProcessor {
     }
 
 
+    // 执行表达式
     private static String eval(String expr) throws SecurityException, NoSuchFieldException, IllegalArgumentException,
             IllegalAccessException, NoSuchMethodException, InvocationTargetException, ClassNotFoundException {
         Object obj = execute(expr, null);
+        // execute 返回一个对象，把对象输出为字符串
         if (obj == null) {
             return "null";
         }
@@ -105,19 +110,20 @@ public class RequestProcessor {
 
     }
 
-
+    // 执行表达式，返回最后定位到的对象
     private static Object execute(String expr, String valueExpr) throws SecurityException, NoSuchFieldException,
             IllegalArgumentException, IllegalAccessException, NoSuchMethodException, InvocationTargetException,
             ClassNotFoundException {
+        // 根据表达式，获取 Class 对象
         Class<?> clazz = InspectAgent.inspector.getClazzByExepression(expr);
         if (clazz == null) {
             throw new IllegalArgumentException("Class not found. expr:" + expr);
         }
         String[] options = Common.splitSkipPairs(expr.substring(clazz.getName().length()), '.', '(', ')');
         Object currentObject = null;
-        Class<?> currentClass = clazz;
-        Field lastField = null;
-        Object lastFieldObject = null;
+        Class<?> currentClass = clazz; // 当前类对象
+        Field lastField = null;        // 上一个 Field 对象
+        Object lastFieldObject = null; // 上一个 Field 取值
         for (String option : options) {
             option = option.trim();
             if (option.length() == 0) {
@@ -125,10 +131,13 @@ public class RequestProcessor {
             }
             int index = option.indexOf("(");
             if (index == -1) {
+                // 非左小括号(开始的操作，认为是属性获取
+                // .length 取数组大小
                 if (option.equals("length") && currentClass.isArray()) {
                     //get com.xx.PhpEngineInitializer._quercus._classDefMap.length
                     return Array.getLength(currentObject);
                 }
+                // .class 取类名
                 if (option.equals("class")) {
                     //cn.hqm.jvm.AgentArgs.class
                     currentObject = currentClass;
@@ -137,16 +146,18 @@ public class RequestProcessor {
                 }
                 Integer arrayIndex = null;
                 if (option.endsWith("]")) {
-                    //get com.xx.PhpEngineInitializer._quercus._classDefMap[0] 
+                    //取数组下标对应的元素，如：get com.xx.PhpEngineInitializer._quercus._classDefMap[0] 
                     int indexa = option.indexOf("[");
                     if (indexa == -1) {
                         return "invalid expression near '" + option + "'";
                     }
                     arrayIndex = Integer.valueOf(option.substring(indexa + 1, option.length() - 1).trim());
+
+                    // 去掉如 _classDefMap[0] 中的 [ 及后面部分，得到属性名 _classDefMap （arrayIndex 已保存）
                     option = option.substring(0, indexa).trim();
                 }
 
-                //字段取值
+                //类属性对应的 Field 对象
                 Field field = getField(currentClass, option, true);
                 if (field == null) {
                     return "Field " + option + " not found in " + currentClass;
@@ -154,15 +165,18 @@ public class RequestProcessor {
                 lastField = field;
                 lastFieldObject = currentObject;
                 field.setAccessible(true);
+
+                // 获取当前字段取值
                 currentObject = field.get(currentObject);
 
                 if (arrayIndex != null) {
+                    // 根据 arrayIndex 获取数组元素值
                     currentObject = Array.get(currentObject, arrayIndex);
                 }
                 //lastAoRef[0] = field;
             }
             else {
-                //方法调用
+                //方法调用：左小括号(开始的操作，认为是方法调用 
                 String methodName = option.substring(0, index).trim();
                 //int index2 = option.lastIndexOf(")", index + 1);  //这个竟然返回-1
                 int index2 = option.lastIndexOf(")");
@@ -194,6 +208,7 @@ public class RequestProcessor {
     }
 
 
+    // 获取类的属性对应的 Field 对象
     private static Field getField(Class<?> currentClass, String fieldName, boolean istop) throws NoSuchFieldException {
         //NoSuchFieldException e = null;
         try {

@@ -124,7 +124,7 @@ public class ClassLoadingSpy {
         }
     }
 
-
+    // 根据表达式，获取 Class 对象
     public Class<?> getClazzByExepression(String expr) throws ClassNotFoundException {
         String[] pathes = expr.split("\\.");
         Tree<ClassLoadingInfo, String> classTree = pkgTree.locate(pathes, false);

@@ -26,9 +26,20 @@ import com.sun.tools.attach.VirtualMachine;
 
 
 /**
+ * 对应配置：resource/META-INF 中的这行：
+ * 
+ * Main-Class: cn.hqm.jvm.InspectAttacher
+ * 
+ * 配置作用：jar包启动时，直接执行这个类的 main 方法
+ * 
+ * 
+ * 参见 https://javadoc.io/doc/io.earcam.wrapped/com.sun.tools.attach/latest/index.html 
+ * 其中的如下方法：
+ *  com.sun.tools.attach.VirtualMachine.attach 方法，挂载到一个已启动的jvm
+ *  com.sun.tools.attach.VirtualMachine.loadAgent 方法，让挂载到的目标JVM，加载 agent jar包，然后通过 java.lang.instrument 规范，
+ *      执行其 META-INF 中 Agent-Class 指定的 agentmain 方法。
  * 
  * @author linxuan
- *
  */
 public class InspectAttacher {
     private static final String prompt = "inspect>";
