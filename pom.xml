@@ -6,7 +6,7 @@
 	<groupId>cn.hqm.jvm</groupId>
 	<artifactId>jvm-inspector</artifactId>
 	<version>2.0.2</version>
-	<name>${project.artifactId}-${project.version} TAE JVM tools</name>
+	<name>${project.artifactId}-${project.version} BLZG JVM tools</name>
 	<dependencies>
 		<dependency>
 			<groupId>jline</groupId>
