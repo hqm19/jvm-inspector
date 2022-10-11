@@ -12,7 +12,7 @@ import java.util.Arrays;
 
 
 /**
- * Attach成功，简历 socket 连接后的交互式请求应答处理
+ * Attach成功，建立 socket 连接后的交互式请求应答处理
  * 
  * @author linxuan
  *

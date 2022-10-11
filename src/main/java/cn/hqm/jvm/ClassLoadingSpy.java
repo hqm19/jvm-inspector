@@ -124,7 +124,13 @@ public class ClassLoadingSpy {
         }
     }
 
-    // 根据表达式，获取 Class 对象
+    /**
+     * 根据表达式，获取 Class 对象。 
+     * 
+     * @param expr 形如 com.taobao.tae.grid.tbml.TBMLfilterHelper.filterHtml() 
+     * @return
+     * @throws ClassNotFoundException
+     */
     public Class<?> getClazzByExepression(String expr) throws ClassNotFoundException {
         String[] pathes = expr.split("\\.");
         Tree<ClassLoadingInfo, String> classTree = pkgTree.locate(pathes, false);

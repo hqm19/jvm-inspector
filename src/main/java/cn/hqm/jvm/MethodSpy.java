@@ -62,20 +62,33 @@ public class MethodSpy {
     }
 
 
-    //private Map<>
+    /**
+     * 方法调用跟踪，参数解析；支持两种顺序：
+     *  trace com.taobao.tae.grid.tbml.TBMLfilterHelper.filterHtml() -l 1 -d
+     *  trace  -l 1 -d com.taobao.tae.grid.tbml.TBMLfilterHelper.filterHtml()
+     * 效果相同
+     * 
+     * @param tokens 如：trace com.taobao.tae.grid.tbml.TBMLfilterHelper.filterHtml() -l 1 -d 空格分割出的数组
+     * @param expressions
+     * @param params
+     * @return
+     */
     private static String dealParam(String[] tokens, List<String> expressions, Map<Option, String> params) {
         Option lastOption = null;
-        for (int i = 1; i < tokens.length; i++) { //跳过第一个
+        for (int i = 1; i < tokens.length; i++) { //第一个tokens是trace ，跳过
             String token = tokens[i];
             if (token.charAt(0) == '-') {
+                // 第一个字符是减号，说明是选项键，如 -l， -d 等
                 int n = token.length();
                 if (n < 2) {
+                    // 只有一个单独的减号不合法
                     return usage;
                 }
 
                 //负数的处理
                 char c2 = token.charAt(1);
                 if ('0' <= c2 && c2 <= '9') {
+                    // 减号后面紧跟着数字，和数字一起构成负数，作为选项值，放入上一个识别出的选项中
                     if (lastOption != null) {
                         params.put(lastOption, token);
                         lastOption = null;
@@ -85,28 +98,32 @@ public class MethodSpy {
 
                 lastOption = null;
                 for (int j = 1; j < n; j++) {
-                    char c = token.charAt(j);
-                    Option o = options.get(c);
-                    if (o != null) {
-                        params.put(o, null);
+                    char c = token.charAt(j);  // 取减号后面的选项键(目前只有单字符选项)
+                    Option o = options.get(c); // 根据选项字符，从预置选项 map 中，获取 Option 对象
+                    if (o != null) {           // 选项键有对应的 Option，则将 Option 对象 put 到参数列表 params 中
+                        params.put(o, null); 
                         if (o.hasvalue) {
+                            // 有些选项不需要额外值(本质上只有两个取值)，有些需要额外值。需要额外值的，将其设置为 lastOption
                             lastOption = o;
                         }
                     }
                 }
             }
             else if (lastOption != null) {
+                // 非选项键(不以减号好开头)，这时如果 lastOption 存在，
+                // 说明上一个 token 对应的选项是需要带值的，那么就把当前 token 设置为其选项值。
                 params.put(lastOption, token);
-                lastOption = null;
+                lastOption = null; // 重置 lastOption 为空
             }
             else {
+                // 非选项键(不以减号好开头)，同时 lastOption 为空，说明也不是选项值，则被认为是表达式的一部分
                 expressions.add(token);
             }
         }
         return null;
     }
 
-
+    // 方法调用跟踪
     public static String trace(File outputDir, Instrumentation instrumentation, String[] tokens)
             throws ClassNotFoundException {
         Set<Class<?>> classes = new HashSet<Class<?>>();
@@ -119,6 +136,8 @@ public class MethodSpy {
             return errormsg;
         }
         ClassLoader loader = null;
+
+        // expressions 形如 com.taobao.tae.grid.tbml.TBMLfilterHelper.filterHtml() 等多个
         for (String expr : expressions) {
             Class<?> clazz = InspectAgent.inspector.getClazzByExepression(expr);
             if (clazz == null) {
@@ -131,7 +150,9 @@ public class MethodSpy {
                 return "Class used by tracing self could not be traced: " + clazz;
             }
             loader = clazz.getClassLoader(); //TODO 用另一种方式
-            String method = expr.substring(clazz.getName().length());
+            String method = expr.substring(clazz.getName().length()); 
+
+            // 类名之后，紧接着方法命名，如 some.ClassX.foo() 或 some.ClassX.foo
             int index1 = method.indexOf(".");
             int index2 = method.indexOf("(");
             if (index2 != -1) {
@@ -140,6 +161,8 @@ public class MethodSpy {
             else {
                 method = method.substring(index1 + 1).trim();
             }
+
+            // 从类定义中，遍历方法定义，与截取到的方法名 method 匹配的方法，加入到待 trace 集合
             for (Method m : clazz.getDeclaredMethods()) {
                 if (m.getName().equals(method)) {
                     methods.add(m.getName());
@@ -147,7 +170,7 @@ public class MethodSpy {
                 }
             }
             if (method.equals(clazz.getSimpleName())) {
-                //构造函数
+                //如果是构造函数，也加入；构造函数在字节码层面的名字都是 <init>
                 methods.add("<init>");
                 classes.add(clazz);
             }
@@ -156,22 +179,24 @@ public class MethodSpy {
             return "No methods found.";
         }
 
-        //设置MethodAdvice参数及timeout
+        //设置 MethodAdvice 参数及 timeout
         long timeoutMS = 15000L;
         try {
-            MethodAdvice.loader = loader;
+            MethodAdvice.loader = loader;  //设置 MethodAdvice 的全局 loader
             Set<String> displays = new HashSet<String>();
             for (Map.Entry<Option, String> entry : params.entrySet()) {
                 Option o = entry.getKey();
                 if (o.name != null) {
+                    // 参数选项中有 name 属性，则把 name 加入到 trace 要显示的字段列表中
                     displays.add(o.name);
                 }
             }
             if (!displays.isEmpty()) {
-                MethodAdvice.displays = displays;
+                MethodAdvice.displays = displays; // 设置 trace 要显示的字段列表
             }
             String stackDepth = params.get(options.get(k_s));
             if (stackDepth != null) {
+                // 设置要截取的栈深度
                 MethodAdvice.stackDepth = Integer.valueOf(stackDepth);
             }
             String timeout = params.get(options.get(k_t));
@@ -180,6 +205,7 @@ public class MethodSpy {
             }
             String targetInvokeCount = params.get(options.get(k_l));
             if (targetInvokeCount != null) {
+                // 设置要 trace 的次数
                 MethodAdvice.targetCount = Integer.valueOf(targetInvokeCount);
             }
         }
@@ -190,6 +216,7 @@ public class MethodSpy {
 
         File detailFile = null;
         if (params.containsKey(options.get(k_d))) {
+            // 如果加了 -d 参数，则打开输出文件的 fileWriter
             detailFile = InspectAgent.openEchoToFile(outputDir);
         }
 
@@ -198,7 +225,9 @@ public class MethodSpy {
         try {
             try {
                 MethodAdvice.count.set(0);
+                // 注册自定义的 ClassFileTransformer 对象 ttf
                 instrumentation.addTransformer(ttf, true);
+                // 做字节码替换，一次替换多个类
                 instrumentation.retransformClasses(classes.toArray(new Class[classes.size()]));
                 synchronized (MethodAdvice.counterLock) {
                     try {
@@ -211,7 +240,9 @@ public class MethodSpy {
                 }
             }
             finally {
+                // 移除自定义的 ClassFileTransformer 对象 ttf
                 instrumentation.removeTransformer(ttf);
+                // 重新 transform 回原来的状态
                 instrumentation.retransformClasses(classes.toArray(new Class[classes.size()]));
             }
         }

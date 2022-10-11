@@ -37,9 +37,11 @@ public class MethodInterceptor extends ClassVisitor {
         }
         MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
         return new TraceMethodCall(mv, access, className, name, desc);
-
     }
 
+    /**
+     * 真正植入 trace 代码的地方
+     */
     private static class TraceMethodCall extends AdviceAdapter {
         private String className;
         private String methodName;
@@ -57,35 +59,35 @@ public class MethodInterceptor extends ClassVisitor {
             this.className = calssName;
         }
 
+        // 在方法开始的时候
+        @Override
+        protected void onMethodEnter() {
+            push(className);                // className 压入栈
+            push(methodName);               // methodName 压入栈
+            push(methodDesc);               // methodDesc 压入栈
+            loadThisOrPushNullIfIsStatic(); // this/null 压入栈
+            loadArgArray();                 // 调用方法的参数列表压入栈
+            invokeStatic(advice, enter);    // 以栈中的参数，调用 MethodAdvice.onMethodBegin 静态方法
+            mark(start);
+        }
 
+        // 在重新计算栈的时候
         @Override
         public void visitMaxs(int maxStack, int maxLocals) {
             mark(end);
             catchException(start, end, Type.getType(Throwable.class));
             dup();
-            invokeStatic(advice, exit);
+            invokeStatic(advice, exit);  // 在 catch 中调用 MethodAdvice.onMethodEnd 静态方法
             throwException();
             super.visitMaxs(maxStack, maxLocals);
         }
 
-
-        @Override
-        protected void onMethodEnter() {
-            push(className);
-            push(methodName);
-            push(methodDesc);
-            loadThisOrPushNullIfIsStatic();
-            loadArgArray();
-            invokeStatic(advice, enter);
-            mark(start);
-        }
-
-
+        // 在方法退出的时候
         @Override
         protected void onMethodExit(int opcode) {
             if (opcode != ATHROW) {
                 prepareResultBy(opcode);
-                invokeStatic(advice, exit);
+                invokeStatic(advice, exit); // 在方法结束处调用 MethodAdvice.onMethodEnd 静态方法
             }
         }
 
@@ -106,6 +108,7 @@ public class MethodInterceptor extends ClassVisitor {
                 dup(); // object
             case LRETURN:
             case DRETURN:
+                // 对于返回 Long 或 Double 的 return 指令
                 dup2();
                 box(Type.getReturnType(methodDesc)); // long or double
             default:

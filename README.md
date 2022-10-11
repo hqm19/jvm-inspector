@@ -12,13 +12,25 @@ jvm-inspector
 1. 既然到了需要在线排查的地步，必然是已经出了问题。定位原因才是第一需要。
 2. 互联网场景都是分布式集群化，搞挂一台机器没那么严重
 3. 工具的开销，相对于正在跑的业务可以忽略
- 
-新版不再需要配置jvm启动参数，启动命令样例：
 
-$ /opt/taobao/java/bin/java -Xbootclasspath/a:/opt/taobao/java/lib/tools.jar -jar jvm-inspect-2.0.jar 48475
-其中jvm-inspect-2.0.jar为下载本工具获得的jar包路径；48475为jvm进程pid；
+构建：
 
 ```
+mvn clean compile assembly:single
+```
+
+将在 target 下生成 jvm-inspector-2.0.2.jar 
+
+新版不再需要配置jvm启动参数，启动命令样例：
+
+java -Xbootclasspath/a:/opt/taobao/java/lib/tools.jar -jar jvm-inspector-2.0.2.jar 48475
+
+其中 jvm-inspector-2.0.2.jar 为mvn构建好的 jar 包路径；48475 为 jvm 进程pid；
+
+```
+$ java -Xbootclasspath/a:/opt/taobao/java/lib/tools.jar -jar jvm-inspect-2.0.jar 48475
+
+
 Dec 2, 2013 9:29:17 AM com.taobao.tae.jvm.Log warn
 WARNING: attach to pid:48475
 Dec 2, 2013 9:29:18 AM com.taobao.tae.jvm.Log warn

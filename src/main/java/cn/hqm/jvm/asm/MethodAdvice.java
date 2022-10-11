@@ -58,6 +58,7 @@ public class MethodAdvice {
 
     private static final ConcurrentHashMap<Thread, Stack<Map<String, Object>>> threadBoundContexts;
 
+    // 哪些类，是被 MethodAdvice 本身使用的，这些类不能被 trace，以避免死循环
     public static Set<Class<?>> usedClasses = new HashSet<Class<?>>();
     static {
         try {
@@ -87,6 +88,14 @@ public class MethodAdvice {
 
     
 
+    /**
+     * 在方法开始处，要插入的逻辑。在要 trace 的方法体开始处(第一行前面)，会被字节码植入一个对这个方法的调用语句
+     * @param className 字节码调用语句传入的被trace方法所在类名，/ 分割
+     * @param methodName 字节码调用语句传入的被trace方法的方法名
+     * @param descriptor 字节码调用语句传入的被trace方法的描述
+     * @param thisObject 字节码调用语句传入的被trace方法的this对象
+     * @param arguments 字节码调用语句传入的，被trace方法的参数
+     */
     public static void onMethodBegin(String className, String methodName, String descriptor, Object thisObject,
             Object[] arguments) {
         Map<String, Object> context = new HashMap<String, Object>();
@@ -122,6 +131,10 @@ public class MethodAdvice {
     }
 
 
+    /**
+     * 在方法结束处，要插入的逻辑。在要 trace 的方法体结束处(正常结束或抛出异常时)，会被字节码植入一个对这个方法的调用语句
+     * @param resultOrException
+     */
     public static void onMethodEnd(Object resultOrException) {
         Stack<Map<String, Object>> invokeStack = threadBoundContexts.get(Thread.currentThread());
         Map<String, Object> context = invokeStack.pop();
@@ -136,6 +149,7 @@ public class MethodAdvice {
 
 
     /**
+     * 把 context 压入栈
      * @return push之前栈的深度
      */
     private static int stackPush(Map<String, Object> context) {
@@ -187,11 +201,11 @@ public class MethodAdvice {
         return descriptor.charAt(descriptor.indexOf(')') + 1) == 'V';
     }
 
-    public static final AtomicInteger count = new AtomicInteger(0);
+    public static final AtomicInteger count = new AtomicInteger(0); // 当前 trace 次数
     public static final Object counterLock = new Object();
-    public static volatile int targetCount;
-    public static volatile int stackDepth;
-    private static final int stackDepthSkip = 3; //跳过adviser的stack
+    public static volatile int targetCount;      // 要 trace 的次数，默认 2 次
+    public static volatile int stackDepth;       // 要截取的栈深度，负值从lenght减去，即[0,len-x]； 正值从0加，即[0,x]
+    private static final int stackDepthSkip = 3; // 跳过adviser的stack，固定值
     public static volatile Set<String> displays;
     public static volatile ClassLoader loader;
     private static final String[] indents = new String[] { "", " ", "  ", "   ", "    ", "     " };
@@ -226,7 +240,7 @@ public class MethodAdvice {
 
 
     public static void enterWith(Map<String, Object> context, int invokeStackDepth) {
-        int curr = count.incrementAndGet();
+        int curr = count.incrementAndGet(); // trace 次数加1
         StringBuilder sb = new StringBuilder(getIndent(invokeStackDepth));
         sb.append("total invok ").append(curr).append(". ").append(context.get(METHOD));
         sb.append(displays.contains(DESCRIPTOR) ? context.get(DESCRIPTOR) : "()");
@@ -300,8 +314,9 @@ public class MethodAdvice {
 
         //通知前端不再等待
         if (invokeStackDepth == 0) {
-            int curr = count.get();
+            int curr = count.get(); // 读取当前 trace 次数
             if (curr >= targetCount) {
+                // 当前 trace 次数，大等于目标 trace 次数，则结束 trace
                 synchronized (counterLock) {
                     counterLock.notifyAll();
                 }
